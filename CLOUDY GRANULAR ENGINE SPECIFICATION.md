@@ -71,3 +71,32 @@ Playback is dispatched through Elektron's native polyphase resampler:
          ...
 0x04E5F8 ─────────────────────────────────────────────── End of File (Offset 321,016 Exact)
 ```
+## 4. Assembler Toolchain & Syntax Rules (`selas`)
+
+Custom SHARC assembly injected into Section 7 must adhere to these verified toolchain constraints:
+* **No Stack Pointer Modifies**: Do not use `i7 = modify(i7, n);` (compiles to `0f 17 00 00 00 00`, collapsing I7 to 0 and crashing the DSP). Use direct register arithmetic instead (`r2 = i7; r2 = r2 + r1; i7 = r2;`).
+* **Strict DAG Memory Operands**: Memory accesses must use DAG index registers (`I0`..`I15`).
+* **Register-Only Shifts & Comparisons**: Shifts and ALU comparisons require explicit data registers (`r3 = 13; r2 = lshift r1 by r3;`).
+
+---
+
+## 5. DSP Cycle Budget & Performance Ceiling (Rule 4)
+
+* **Hardware Period**: 64 samples @ 96 kHz = **666.67 µs** per audio block.
+* **Per-Voice Ceiling**: Across 32 active voices, each voice engine has a hard performance budget of **≤ 20 µs** (~10,000 SHARC cycles on a 500 MHz core).
+* **Granular Engine Target**: The stochastic PRNG spray, dynamic slice scaling, and polyphase dispatch must execute in **≤ 4,000 cycles per voice** (~25% total DSP load) to match stock resampler numbers.
+
+## 6. Community Machine Qualification & UX Quality Checklist (Machine 2 / STRETCH In-Place Swap)
+
+Every custom machine replacing Machine 2 (STRETCH) must pass this 10-point user experience and sequencer qualification suite before release:
+
+1. [ ] **Machine Box Alignment**: The short text abbreviation on the SRC page (`CLDY`) is <= 4 characters, ensuring the OLED machine select box renders at the factory width.
+2. [ ] **MIDI CC Inheritance**: All 8 SRC page encoders respond accurately to external MIDI CC messages mapped to the Machine 2 parameter mirror indices.
+3. [ ] **LFO Destination Routing**: The replaced parameter (`RATE`, formerly BARS) appears properly labeled in the Track LFO destination menu and modulates cleanly at audio rate without DSP clicks.
+4. [ ] **Default Value Reset ([FUNC] + [NO])**: Pressing Clear Page on the SRC page resets all encoders to defined Cloudy defaults (`RATE` = 32 / 1.0x pitch, `STRT` = 0, `LEN` = 64).
+5. [ ] **Parameter Randomization ([PAGE] + [YES])**: Page randomization produces musically useful granular variations without generating out-of-range DSP lockups or NaN audio mute traps.
+6. [ ] **[FUNC] + Encoder Snapping**: Pressing [FUNC] while turning Knob G (`RATE`) engages integer semitone snapping; turning Knobs E/F engages musical division jumps.
+7. [ ] **Macro Modulation (Velocity / Breath / Aftertouch / Mod Wheel)**: Mod matrix routing to `RATE`, `STRT`, and `LEN` scales smoothly without comb-filtering.
+8. [ ] **Copy & Paste Page ([PAGE] + [REC] / [STOP])**: Parameter pages copy and paste between tracks and patterns without parameter drift or freezing.
+9. [ ] **Sound Pool & Sound Locks**: Sounds saved using the Cloudy machine load cleanly from the +Drive Sound Pool and can be p-locked across sequencer steps.
+10. [ ] **Stock Machine Coexistence**: All other factory engines (**OneShot, Werp, Repitch, Slice, and Manual Slice**) operate simultaneously across other tracks with 100% stock fidelity and timing.
